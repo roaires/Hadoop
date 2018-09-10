@@ -1,0 +1,24 @@
+
+[cloudera@quickstart ~]$ hadoop fs -mkdir /user
+[cloudera@quickstart ~]$ hadoop fs -mkdir /user/hadoop5
+[cloudera@quickstart ~]$ hadoop fs -mkdir /user/hadoop5/temperatura
+[cloudera@quickstart ~]$ hadoop fs -put 1901 /user/hadoop5/temperatura
+[cloudera@quickstart ~]$ hadoop fs -put 1902 /user/hadoop5/temperatura
+
+grunt> arqtemperaturas = LOAD '/user/hadoop5/temperatura' AS (l:chararray);
+grunt> historico = foreach arqtemperaturas GENERATE (int)SUBSTRING(l, 15,19) AS ano, (float)SUBSTRING(l, 87,92) AS temperatura;
+grunt> HistValido = FILTER historico BY ano == 1901 or ano == 1902;
+grunt> tempano = GROUP HistValido BY ano;
+grunt> medias = foreach tempano GENERATE group AS ano, ROUND(AVG(HistValido.temperatura)) AS Temperatura;
+grunt> STORE medias into '/user/hadoop5/temperatura/resultados';
+
+[cloudera@quickstart ~]$ hadoop fs -ls /user/hadoop5/temperatura/resultados
+[cloudera@quickstart ~]$ hadoop fs -cat /user/hadoop5/temperatura/resultados/part-r-00000
+[cloudera@quickstart ~]$ echo "Conversão ºF x ºC x ºK"
+
+grunt> conversoes = foreach medias GENERATE ano, Temperatura AS Fahrenheit, ROUND((Temperatura-32)/1.8) AS Celsius, ROUND(((Temperatura-32)/1.8) + 273.15) AS Kelvin;
+grunt> STORE conversoes into '/user/hadoop5/temperatura/resultados/conversoes';
+
+[cloudera@quickstart ~]$ hadoop fs -ls /user/hadoop5/temperatura/resultados/conversoes
+[cloudera@quickstart ~]$ hadoop fs -cat /user/hadoop5/temperatura/resultados/conversoes/part-r-00000
+
